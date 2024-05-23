@@ -1,0 +1,105 @@
+{% extends "network/layout.html" %}
+
+{% block body %}
+<div class="container">
+    {% if posts_obj %}
+        {% for post in posts_obj %}
+        <div class="card shadow-lg rounded bg-light mb-3">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col">
+                        <div class="row mb-1">
+                            <h5 class="my-auto px-3">
+                                <a href="{% url 'profile-view' post.author.username %}">
+                                    {{ post.author.username }}
+                                </a>
+                            </h5>
+                        </div>
+                        <div class="content p-3 mb-1 shadow-sm">
+                            <p>{{ post.content }}</p>
+                        </div>
+                        <div class="footer d-flex justify-content-between px-3">
+                            <div class="">
+                                <span id="likes-count-{{ post.id }}" >{{ post.likes.count }}</span>
+                                <button class="btn btn-link like-button" data-post-id="{{ post.id }}">
+                                    {% if user in post.likes.all %}
+                                        <i class="bi bi-heart-fill"></i> Unlike
+                                    {% else %}
+                                        <i class="bi bi-heart"></i>Like
+                                    {% endif %}
+                                </button>
+                            </div>
+                            <i class="bi-chat">
+                                <strong class="mx-1 text-danger">3</strong>
+                            </i>
+                            <!-- <a href=""><i class="bi-pen mx-1"></i>Edit</a> -->
+                            <small>{{ post.created_at }}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+    <div class="card shadow-lg">
+        <div class="card-body">
+            <p>No posts to display</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+<script>
+        document.querySelectorAll('.like-button').forEach(button => {
+        button.addEventListener('click', (e) => {
+            e.preventDefault();
+            const postId = e.target.getAttribute('data-post-id');
+            const likesCountElement = document.getElementById(`likes-count-${postId}`);
+
+            fetch("{% url 'toggle-like' 0 %}".replace('0', postId), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const newLikesCount = data.likes_count;
+                    likesCountElement.innerText = newLikesCount;
+
+                    const likeButton = e.target;
+                    if (data.liked) {
+                        likeButton.innerHTML = '<i class="bi bi-heart-fill"></i> Unlike';
+                    } else {
+                        likeButton.innerHTML = '<i class="bi bi-heart"></i> Like';
+                    }
+                } else {
+                    alert('An error occurred while updating the like status.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        });
+    });
+</script>
+    <nav aria-label="Page navigation example">
+        <ul class="pagination justify-content-center">
+            {% if posts_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ posts_obj.previous_page_number }}">Previous</a>
+        </li>
+        <li class="page-item active">
+            <a class="page-link" href="?page={{ posts_obj.number }}"> {{posts_obj.number}}</a>
+        </li>
+        {% endif %}
+        {% if posts_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ posts_obj.next_page_number }}">Next</a>
+        </li>
+        {% endif %}
+        </ul>
+    </nav>
+{% endblock %}

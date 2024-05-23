@@ -1,0 +1,161 @@
+{% extends "network/layout.html" %}
+{% load static %}
+
+{% block body %}
+<div class="container">
+    {% if messages %}
+        <div class="alert alert-info">
+            {% for message in messages %}
+                <div>{{ message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+    <div class="card mb-3 shadow-sm">
+        <div class="card-header bg-primary text-white">Add Post</div>
+        <div class="card-body">
+            <form action="{% url 'new-post' %}" method="post">
+                {% csrf_token %}
+                <div class="form-group">
+                    <textarea class="form-control" name="content" id="" cols="3" rows="2" placeholder="What's happening ?"></textarea>
+                </div>
+                <button class="btn btn-primary" type="submit" value="Post">Post</button>
+            </form>
+        </div>
+    </div>
+    {% if posts_obj %}
+        {% for post in posts_obj %}
+        <div class="card shadow-lg rounded bg-light mb-3">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col">
+                        <div class="row mb-1">
+                            <!-- <img src="https://mdbcdn.b-cdn.net/img/new/avatars/2.webp" alt="" class="rounded-circle" width="50px"> -->
+                            <h5 class="my-auto px-3"><a href="{% url 'profile-view' post.author.username %}">{{ post.author }}</a></h5>
+                        </div>
+                        <div class="content p-3 mb-1 shadow-sm" id="post-content-{{ post.id }}">
+                            <p>{{ post.content }}</p>
+                        </div>
+                        <div class="footer d-flex justify-content-between px-3">
+                            <div class="">
+                                <span id="likes-count-{{ post.id }}" >{{ post.likes.count }}</span>
+                                <button class="btn btn-link like-button" data-post-id="{{ post.id }}">
+                                    {% if user in post.likes.all %}
+                                        <i class="bi bi-heart-fill"></i> Unlike
+                                    {% else %}
+                                        <i class="bi bi-heart"></i> Like
+                                    {% endif %}
+                                </button>
+                            </div>
+
+                            <i class="bi-chat"><strong class="mx-1 text-danger">3</strong></i>
+                            {% if request.user == post.author %}
+                                <button class="btn btn-primary edit-button" data-post-id="{{ post.id }}">Edit</button>
+                            {% endif %}
+                        
+                            <small>{{ post.created_at }}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="card shadow-lg">
+            <div class="card-body">
+                <p>No post to display</p>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+    document.querySelectorAll('.edit-button').forEach(button => {
+        button.addEventListener('click', (e) => {
+            e.preventDefault();
+            const postId = e.target.getAttribute('data-post-id');
+            const postContent = document.getElementById(`post-content-${postId}`);
+            const originalContent = postContent.querySelector('p').innerText;
+
+            postContent.innerHTML = `
+                <textarea class="form-control" id="edit-content-${postId}">${originalContent}</textarea>
+                <button class="btn btn-primary save-button" data-post-id="${postId}">Save</button>
+            `;
+
+            document.querySelector(`.save-button[data-post-id="${postId}"]`).addEventListener('click', (event) => {
+                event.preventDefault();
+                const newContent = document.getElementById(`edit-content-${postId}`).value;
+
+                fetch("{% url 'edit-post' 0 %}".replace('0', postId), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({ content: newContent })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        postContent.innerHTML = `<p>${data.content}</p>`;
+                    } else {
+                        alert('An error occurred while saving the post.');
+                    }
+                });
+            });
+        });
+    });
+        document.querySelectorAll('.like-button').forEach(button => {
+        button.addEventListener('click', (e) => {
+            e.preventDefault();
+            const postId = e.target.getAttribute('data-post-id');
+            const likesCountElement = document.getElementById(`likes-count-${postId}`);
+
+            fetch("{% url 'toggle-like' 0 %}".replace('0', postId), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const newLikesCount = data.likes_count;
+                    likesCountElement.innerText = newLikesCount;
+
+                    const likeButton = e.target;
+                    if (data.liked) {
+                        likeButton.innerHTML = '<i class="bi bi-heart-fill"></i> Unlike';
+                    } else {
+                        likeButton.innerHTML = '<i class="bi bi-heart"></i> Like';
+                    }
+                } else {
+                    alert('An error occurred while updating the like status.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        });
+    });
+</script>
+
+<nav aria-label="Page navigation example">
+    <ul class="pagination justify-content-center">
+        {% if posts_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ posts_obj.previous_page_number }}">Previous</a>
+        </li>
+        <li class="page-item active">
+            <a class="page-link" href="?page={{ posts_obj.number }}"> {{ posts_obj.number }}</a>
+        </li>
+        {% endif %}
+        {% if posts_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ posts_obj.next_page_number }}">Next</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endblock %}
